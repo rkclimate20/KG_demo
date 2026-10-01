@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-build_semantic_kg_v2.py - build an interactive knowledge graph from an encyclopedia + the source papers.
+build_semantic_kg.py - build an interactive knowledge graph from an encyclopedia + the source papers.
 
 Unlike a graph built only from Wikipedia links, this links terms using
   (1) co-occurrence in the papers (with the supporting sentence),
@@ -9,7 +9,7 @@ Unlike a graph built only from Wikipedia links, this links terms using
   (4) optionally, Wikipedia page links.
 
 Example (Google Colab):
-  !python /content/KG_demo/build_semantic_kg_v2.py \\
+  !python /content/KG_demo/build_semantic_kg.py \\
       --input  /content/encyclopediaTest.html \\
       --output /content/semantic_KG_v2.html \\
       --text-dir /content/text_all
