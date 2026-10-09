@@ -417,9 +417,16 @@ ui = """
 .tag{font-size:11px;padding:1px 5px;border-radius:8px;background:#233;color:#9cf;margin-left:4px}
 .nb{cursor:pointer;color:#ffd54f;text-decoration:underline}
 mark{background:#ffd54f;color:#000;padding:0 1px}
-.x{float:right;cursor:pointer;color:#aaa;font-size:16px}
+.x{cursor:pointer;color:#aaa;font-size:16px;margin-left:8px}
+.hd{cursor:pointer;font-weight:bold;user-select:none;display:flex;justify-content:space-between;align-items:center;gap:14px}
+.tg{color:#8fd0ff;font-weight:normal}
+.box.min .bd{display:none}
+.box.min{padding:6px 10px}
+.box:not(.min) .hd{margin-bottom:8px}
+#papers.min,#info.min{width:auto}
 </style>
-<div id="panel" class="box">🔍 <input id="search" placeholder="Search term"> <button onclick="searchNode()">Go</button>
+<div id="panel" class="box min"><div class="hd" onclick="toggleBox('panel')"><span>🔍 Search &amp; filters</span><span class="tg">▸</span></div><div class="bd">
+ <input id="search" placeholder="Search term"> <button onclick="searchNode()">Go</button>
  <button onclick="clearSelection()">Reset</button><br><br>
  <b>Show links</b><br>
  <label><input type="checkbox" class="et" value="cooc" checked> co-occur in papers</label><br>
@@ -429,11 +436,13 @@ mark{background:#ffd54f;color:#000;padding:0 1px}
  <label><input type="checkbox" id="hideOthers"> hide unrelated nodes when selecting</label><br><br>
  <span>__CONN__ of __TOTAL__ terms connected</span><br>
  <span class="muted">Click a node to highlight it and its links. Click empty space or press Esc to reset.</span>
-</div>
-<div id="legend" class="box"><b>Topic clusters (size)</b><br>__LEGEND__
- <div style="margin-top:6px" class="muted">Node size = mentions in papers<br>Hover a link for the supporting sentence</div></div>
-<div id="info" class="box"></div>
-<div id="papers" class="box"><b>Source papers (__NPAPERS__)</b> <span class="muted">click a title to open; "terms" highlights its terms</span><div id="paperlist"></div></div>
+</div></div>
+<div id="legend" class="box min"><div class="hd" onclick="toggleBox('legend')"><span>Topic clusters</span><span class="tg">▸</span></div><div class="bd">__LEGEND__
+ <div style="margin-top:6px" class="muted">Node size = mentions in papers<br>Hover a link for the supporting sentence</div></div></div>
+<div id="info" class="box"><div class="hd" onclick="toggleBox('info')"><span id="infotitle">Details</span>
+ <span><span class="tg" id="tg-info">▾</span><span class="x" onclick="event.stopPropagation();clearSelection()">×</span></span></div><div class="bd" id="infobody"></div></div>
+<div id="papers" class="box min"><div class="hd" onclick="toggleBox('papers')"><span>Source papers (__NPAPERS__)</span><span class="tg">▸</span></div><div class="bd">
+ <div class="muted">click a title to open; "terms" highlights its terms</div><div id="paperlist"></div></div></div>
 <script>
 const PAPERS = __PAPERS__;
 const TERM_PAPERS = __TERMPAPERS__;
@@ -442,6 +451,17 @@ const TYPE_NAME = {cooc:"co-occur", hierarchy:"more specific", abbrev:"abbreviat
 const nodesDS = network.body.data.nodes, edgesDS = network.body.data.edges;
 let selected = null, selPaper = null;
 
+function toggleBox(id){
+  const b = document.getElementById(id); b.classList.toggle("min");
+  const t = b.querySelector(".hd .tg"); if (t) t.textContent = b.classList.contains("min") ? "▸" : "▾";
+}
+function openInfo(title, html){
+  const box = document.getElementById("info"); box.classList.remove("min");
+  document.getElementById("tg-info").textContent = "▾";
+  document.getElementById("infotitle").textContent = title;
+  const body = document.getElementById("infobody"); body.innerHTML = html; body.scrollTop = 0;
+  box.style.display = "block";
+}
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function markTerm(text, term){
   let t = esc(text);
@@ -505,11 +525,11 @@ function selectPaper(pid){
   selected = null; selPaper = pid;
   const focus = applyView();
   const p = PAPERS[pid] || {title:pid}, terms = PAPER_TERMS[pid] || [];
-  let h = '<span class="x" onclick="clearSelection()">×</span><h3>'+paperLink(pid)+'</h3>';
+  let h = '<h3>'+paperLink(pid)+'</h3>';
   h += '<div class="muted">'+esc([p.authors,p.year].filter(Boolean).join(" · "))+'</div>';
   h += '<p>'+terms.length+' graph terms mentioned (click one to inspect):</p>';
   h += terms.map(t=>'<span class="nb" onclick="selectNode(\\''+esc(t[0]).replace(/'/g,"\\\\'")+'\\')">'+esc(t[0])+'</span> <span class="muted">×'+t[1]+'</span>').join(" · ");
-  const box = document.getElementById("info"); box.innerHTML = h; box.style.display = "block";
+  openInfo("Paper", h);
   if (focus.size) fitFocus(focus);
 }
 
@@ -519,7 +539,7 @@ function showNodeInfo(id){
                  .map(e=>({other:e.from===id?e.to:e.from, types:e.types, w:e.w||0, ev:e.title||""}))
                  .sort((a,b)=>b.w-a.w);
   const tp = TERM_PAPERS[id] || [];
-  let h = '<span class="x" onclick="clearSelection()">×</span><h3>'+esc(id)+'</h3>';
+  let h = '<h3>'+esc(id)+'</h3>';
   h += '<div class="muted">'+links.length+' connections · mentioned in '+tp.length+' paper'+(tp.length===1?'':'s')+'</div>';
   if (n.wiki) h += '<div><a href="'+esc(n.wiki)+'" target="_blank" rel="noopener">Wikipedia ↗</a></div>';
   h += '<p><b>Papers mentioning this term</b></p>';
@@ -534,7 +554,7 @@ function showNodeInfo(id){
        + l.types.split(",").map(t=>'<span class="tag">'+(TYPE_NAME[t]||t)+'</span>').join("")
        + (l.ev?'<div class="muted">'+esc(l.ev.length>170?l.ev.slice(0,170)+"…":l.ev)+'</div>':'')+'</div>';
   });
-  const box = document.getElementById("info"); box.innerHTML = h; box.style.display = "block"; box.scrollTop = 0;
+  openInfo("Term details", h);
 }
 
 function clearSelection(){
