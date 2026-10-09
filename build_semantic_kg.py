@@ -475,7 +475,7 @@ function paperLink(pid){
   return p.url ? '<a href="'+esc(p.url)+'" target="_blank" rel="noopener">'+t+'</a>' : t;
 }
 
-function applyView(keepCamera){
+function applyView(){
   const on = enabledTypes(), hideOthers = document.getElementById("hideOthers").checked;
   const edges = edgesDS.get();
   let focus = null;
@@ -485,10 +485,6 @@ function applyView(keepCamera){
   } else if (selPaper){
     focus = new Set((PAPER_TERMS[selPaper]||[]).map(x=>x[0]));
   }
-  const view = (focus && !keepCamera) ? viewFor(focus) : null;
-  const sc = view ? view.scale : network.getScale();
-  // labels of highlighted nodes are enlarged so they stay readable even when the view is zoomed out
-  const lab = focus ? Math.min(250, Math.max(14, 13/sc)) : 14;
   nodesDS.update(nodesDS.get().map(n=>{
     const inF = !focus || focus.has(n.id), isSel = n.id===selected;
     return {id:n.id, hidden: !!(focus && !inF && hideOthers),
@@ -496,8 +492,7 @@ function applyView(keepCamera){
                           highlight:{background:n.originalColor,border:"#ffffff"}}
                        : {background:"rgba(90,90,90,0.15)", border:"rgba(90,90,90,0.15)"},
             borderWidth: isSel?4:1,
-            font:{color: inF ? "#ffffff" : "rgba(255,255,255,0.35)", size: inF ? (isSel ? lab*1.3 : lab) : 14,
-                  strokeWidth: inF ? 3 : 0, strokeColor:"#000000"}};
+            font:{color: inF ? "#ffffff" : "rgba(255,255,255,0.10)"}};
   }));
   edgesDS.update(edges.map(e=>{
     let vis = edgeOn(e,on);
@@ -506,37 +501,36 @@ function applyView(keepCamera){
     const w0 = e.w0 || e.width || 1;
     return {id:e.id, hidden:!vis, w0:w0, width: selected ? Math.max(w0,2.5) : w0};
   }));
-  return {focus:focus, view:view};
+  return focus;
 }
 
-function viewFor(focus){
-  // camera target that shows the whole selection in the middle, clear of the side panels
-  const ids = Array.from(focus); if(!ids.length) return null;
+function fitFocus(focus){
+  // zoom to the selection but keep it in the middle, clear of the side panels
+  const ids = Array.from(focus); if(!ids.length) return;
   const pos = network.getPositions(ids); let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
   ids.forEach(i=>{ const q=pos[i]; x0=Math.min(x0,q.x); x1=Math.max(x1,q.x); y0=Math.min(y0,q.y); y1=Math.max(y1,q.y); });
   const c = document.querySelector("canvas"), W = c.clientWidth, H = c.clientHeight;
   const sc = Math.min(1.2, W/((x1-x0)*1.8+250), H/((y1-y0)*1.8+250));
-  return {position:{x:(x0+x1)/2, y:(y0+y1)/2}, scale:sc};
+  network.moveTo({position:{x:(x0+x1)/2, y:(y0+y1)/2}, scale:sc, animation:{duration:500}});
 }
-function goTo(view){ if(view) network.moveTo({position:view.position, scale:view.scale, animation:{duration:500}}); }
 
 function selectNode(id){
   selected = id; selPaper = null;
-  const r = applyView();
+  const focus = applyView();
   showNodeInfo(id);
-  goTo(r.view);
+  fitFocus(focus);
 }
 
 function selectPaper(pid){
   selected = null; selPaper = pid;
-  const r = applyView();
+  const focus = applyView();
   const p = PAPERS[pid] || {title:pid}, terms = PAPER_TERMS[pid] || [];
   let h = '<h3>'+paperLink(pid)+'</h3>';
   h += '<div class="muted">'+esc([p.authors,p.year].filter(Boolean).join(" · "))+'</div>';
   h += '<p>'+terms.length+' graph terms mentioned (click one to inspect):</p>';
   h += terms.map(t=>'<span class="nb" onclick="selectNode(\\''+esc(t[0]).replace(/'/g,"\\\\'")+'\\')">'+esc(t[0])+'</span> <span class="muted">×'+t[1]+'</span>').join(" · ");
   openInfo("Paper", h);
-  goTo(r.view);
+  if (focus.size) fitFocus(focus);
 }
 
 function showNodeInfo(id){
@@ -584,7 +578,7 @@ network.on("click", p=>{
 document.getElementById("search").addEventListener("keydown", e=>{ if(e.key==="Enter") searchNode(); });
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") clearSelection(); });
 document.querySelectorAll(".et,#hideOthers").forEach(cb=>cb.addEventListener("change", ()=>{
-  applyView(true); if (selected) showNodeInfo(selected);
+  applyView(); if (selected) showNodeInfo(selected);
 }));
 
 (function buildPaperList(){
