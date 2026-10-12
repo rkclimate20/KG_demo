@@ -49,6 +49,9 @@ ap.add_argument("--extra-noise", default="", help="comma-separated extra terms t
 ap.add_argument("--no-cooccurrence", action="store_true", help="disable co-occurrence links")
 ap.add_argument("--no-hierarchy", action="store_true", help="disable term-structure links")
 ap.add_argument("--no-abbreviations", action="store_true", help="disable abbreviation detection")
+ap.add_argument("--label-font-size", type=int, default=14, help="node label font size in graph units (default 14)")
+ap.add_argument("--label-min-px", type=int, default=9,
+                help="labels appear once they would be at least this many pixels tall on screen, i.e. after zooming in (default 9; lower = labels appear earlier)")
 ap.add_argument("--wiki-links", action="store_true", help="also add old-style Wikipedia page links (can be noisy)")
 args = ap.parse_args()
 
@@ -449,6 +452,12 @@ const TERM_PAPERS = __TERMPAPERS__;
 const PAPER_TERMS = __PAPERTERMS__;
 const TYPE_NAME = {cooc:"co-occur", hierarchy:"more specific", abbrev:"abbreviation", wiki:"Wikipedia"};
 const nodesDS = network.body.data.nodes, edgesDS = network.body.data.edges;
+// Node labels: attached to every node with one fixed font size, and drawn only once the view is zoomed in
+// far enough for them to be legible (a label is hidden while its on-screen height is below LABEL_MIN_PX).
+const LABEL_FONT = __LABELFONT__, LABEL_MIN_PX = __LABELMIN__;
+function labelFont(color){ return {color:color, size:LABEL_FONT, strokeWidth:3, strokeColor:"#000000"}; }
+nodesDS.update(nodesDS.getIds().map(id=>({id:id, font:labelFont("#ffffff"),
+                                          scaling:{label:{enabled:false, drawThreshold:LABEL_MIN_PX}}})));
 let selected = null, selPaper = null;
 
 function toggleBox(id){
@@ -492,7 +501,7 @@ function applyView(){
                           highlight:{background:n.originalColor,border:"#ffffff"}}
                        : {background:"rgba(90,90,90,0.15)", border:"rgba(90,90,90,0.15)"},
             borderWidth: isSel?4:1,
-            font:{color: inF ? "#ffffff" : "rgba(255,255,255,0.10)"}};
+            font: labelFont(inF ? "#ffffff" : "rgba(255,255,255,0.35)")};   // dimmed nodes keep a (fainter) label
   }));
   edgesDS.update(edges.map(e=>{
     let vis = edgeOn(e,on);
@@ -596,7 +605,8 @@ document.querySelectorAll(".et,#hideOthers").forEach(cb=>cb.addEventListener("ch
 ui = (ui.replace("__CONN__", str(len(connected))).replace("__TOTAL__", str(len(nodes)))
         .replace("__LEGEND__", legend_html).replace("__NPAPERS__", str(len(papers_js)))
         .replace("__PAPERS__", js_json(papers_js)).replace("__TERMPAPERS__", js_json(term_papers_js))
-        .replace("__PAPERTERMS__", js_json(dict(paper_terms))))
+        .replace("__PAPERTERMS__", js_json(dict(paper_terms)))
+        .replace("__LABELFONT__", str(args.label_font_size)).replace("__LABELMIN__", str(args.label_min_px)))
 with open(OUT_HTML, encoding="utf-8") as f: page = f.read()
 with open(OUT_HTML, "w", encoding="utf-8") as f: f.write(page.replace("</body>", ui + "</body>"))
 
